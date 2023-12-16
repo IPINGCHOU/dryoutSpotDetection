@@ -1,0 +1,7 @@
+streamlit
+numpy
+pandas
+opencv-python
+matplotlib
+easygui
+scikit-video
