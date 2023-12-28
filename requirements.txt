@@ -5,3 +5,5 @@ opencv-python
 matplotlib
 easygui
 scikit-video
+tqdm
+streamlit-image-coordinates

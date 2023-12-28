@@ -60,101 +60,149 @@ def find_contour(image, ori_image, rescale = 0.95):
                 
     return image.copy(), ori_image.copy(), rect
 
+# get the rect (x,y,w,h) from coordinates
+def get_rect(coords):
+    tl, tr = coords['top-left'], coords['top-right']
+    bl, br = coords['bottom-left'], coords['bottom-right']
+    x = (tl[0] + bl[0]) // 2
+    y = (tl[1] + tr[1]) // 2
+    w = ((tr[0] - tl[0]) + (br[0] - bl[0])) // 2
+    h = ((bl[1] - tl[1]) + (br[1] - tr[1])) // 2
+    
+    return x,y,w,h
+
 # main function
 def dryout_detection(frame,
-                     kernel,
-                     square_rescale,
+                    #  kernel,
+                    #  square_rescale,
+                     coords,
                      dryout_min_px,
                      dryout_max_px,
-                     base_ratio):
+                     dryout_area_ratio,
+                     dryout_area_quantile,
+                     left_darken_gradient_mask_rate,
+                     top_brighten_gradient_mask_rate,
+                     bottom_brighten_gradient_mask_rate):
     
     if frame is None:
         return -1, None, None
 
-    verti = cv2.erode(frame.copy(), kernel, iterations = 10)
-    verti = cv2.cvtColor(verti, cv2.COLOR_BGR2GRAY)
-    blur = cv2.medianBlur(verti, 21)
-    sharpen_kernel = np.array([[-1,-1,-1], [-1,10,-1], [-1,-1,-1]])
-    sharpen = cv2.filter2D(blur, -1, sharpen_kernel)
-    # blurred = cv2.GaussianBlur(sharpen, (3, 3), 3)
-    line_img, edge_img = find_line(sharpen.copy())
-    contour_img, ori_with_edge_img, rect = find_contour(edge_img.copy(), frame.copy(), square_rescale)
+    # Depreciated, switched to user defined coordinates
+    # verti = cv2.erode(frame.copy(), kernel, iterations = 10)
+    # verti = cv2.cvtColor(verti, cv2.COLOR_BGR2GRAY)
+    # blur = cv2.medianBlur(verti, 21)
+    # sharpen_kernel = np.array([[-1,-1,-1], [-1,10,-1], [-1,-1,-1]])
+    # sharpen = cv2.filter2D(blur, -1, sharpen_kernel)
+    # # blurred = cv2.GaussianBlur(sharpen, (3, 3), 3)
+    # line_img, edge_img = find_line(sharpen.copy())
+    # contour_img, ori_with_edge_img, rect = find_contour(edge_img.copy(), frame.copy(), square_rescale)
 
     # demo
     high_contrast = frame.copy()
     gradient_img = frame.copy()
-    if rect != None:
-        x,y,w,h = rect
-        cropped = frame[y:y+h, x:x+w].copy()
-        
-        alpha = 2
-        beta = 0
-        target = cv2.convertScaleAbs(cropped, alpha=alpha, beta=beta)
-        # target = cv2.addWeighted(cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY), alpha, target, 0, beta)
-        gray = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
-        ada = cv2.adaptiveThreshold(gray, maxValue=250, 
-                                adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                thresholdType=cv2.THRESH_BINARY,
-                                blockSize = 551, C = -4)
-        ret,thresh = cv2.threshold(ada,127,255,0)
-        contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-        
-        # get each contours area
-        min_area = w * h / 50
-        detected_dryout = cropped.copy()
-        mask = cropped.copy() * 0
-        
-        # gradient mask
-        gradient_mask = range(1, w + 1)
-        base = int(w * base_ratio)
-        gradient_mask = np.minimum(np.emath.logn(base, gradient_mask), 1)
-        
-        for i in range(3):
-            cropped[:,:,i] = cropped[:,:,i] * gradient_mask
-        
-        areas = 0
-        for c in contours:
-            if cv2.contourArea(c) > min_area:
-                temp = cropped.copy() * 0
-                cv2.drawContours(temp, [c], -1, (255,255,255), cv2.FILLED)
-                # show_image(temp)
-                temp[temp == 255] = 1
-                
-                temp_crop = cropped.copy()
-                temp_crop *= temp
-                
-                non_zero = temp_crop[np.where(temp_crop!=0)]
-                # mean = np.sum(non_zero) / len(non_zero)
-                quantile = np.quantile(non_zero, 0.8)
-                if dryout_min_px <= quantile <= dryout_max_px:
-                    # print(quantile)
-                    mask += temp
-                    areas += 1
-        
-        mask[mask > 0] = 1
-        total_pixels = np.shape(mask)[0] * np.shape(mask)[1]
-        covered = np.sum(mask[:, :, 0])
-        
-        mask[:, :, 0] *= 255
-        detected_dryout[:, :, 0] = mask[:, :, 0]
-        # detected_dryout *= mask
-        
-        ada = cv2.cvtColor(ada,cv2.COLOR_GRAY2RGB)
-        high_contrast[y:y+h, x:x+w] = ada
-        gradient_img[y:y+h, x:x+w] = cropped
+    # if rect != None:
+        # x,y,w,h = rect
+    
+    x,y,w,h = get_rect(coords)
+    cropped = frame[y:y+h, x:x+w].copy()
+    cropped_contours = cropped.copy()
+    
+    alpha = 2
+    beta = 0
+    target = cv2.convertScaleAbs(cropped, alpha=alpha, beta=beta)
+    # target = cv2.addWeighted(cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY), alpha, target, 0, beta)
+    gray = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
+    ada = cv2.adaptiveThreshold(gray, maxValue=250, 
+                            adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                            thresholdType=cv2.THRESH_BINARY,
+                            blockSize = 551, C = -4)
+    ret,thresh = cv2.threshold(ada,127,255,0)
+    contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(cropped_contours, contours, -1, (0, 255, 0), 3)
+    show_contours = frame.copy()
+    show_contours[y:y+h, x:x+w] = cropped_contours
+    
+    # get each contours area
+    dryout_min_area = w * h / dryout_area_ratio
+    detected_dryout = cropped.copy()
+    
+    
+    # gradient mask (from left, darken)
+    gradient_mask = range(1, w + 1)
+    base = int(w * left_darken_gradient_mask_rate)
+    gradient_mask = np.minimum(np.emath.logn(base, gradient_mask), 1)
+    for i in range(3):
+        cropped[:,:,i] = cropped[:,:,i] * gradient_mask
+    
+    # gradient mask (from top, lighten)
+    if top_brighten_gradient_mask_rate > 0:
+        gradient_mask = np.array(range(1, h + 1))
+        gradient_mask = np.float_power(gradient_mask, -1)
+        base = int(h * top_brighten_gradient_mask_rate)
+        gradient_mask = np.maximum(np.emath.logn(base, gradient_mask), -1) + 1
 
-        img = frame.copy()
-        img[y:y+h, x:x+w] = detected_dryout
+        mask = np.repeat(np.tile(gradient_mask, (w, 1))[:, :, np.newaxis], 3, axis=2)
+        mask = np.rot90(mask, k = 3) * 255
+        mask = mask.astype(np.uint8)
+        cropped = cv2.addWeighted(cropped, 1, mask, 1, 0)
+
+    # gradient mask (from bottom, lighten)
+    if bottom_brighten_gradient_mask_rate > 0:
+        gradient_mask = np.array(range(1, h + 1))
+        gradient_mask = np.float_power(gradient_mask, -1)
+        base = int(h * bottom_brighten_gradient_mask_rate)
+        gradient_mask = np.maximum(np.emath.logn(base, gradient_mask), -1) + 1
+
+        mask = np.repeat(np.tile(gradient_mask, (w, 1))[:, :, np.newaxis], 3, axis=2)
+        mask = np.rot90(mask, k = 1) * 255
+        mask = mask.astype(np.uint8)
+        cropped = cv2.addWeighted(cropped, 1, mask, 1, 0)
+    
+
+    areas = 0
+    mask = cropped.copy() * 0
+    for c in contours:
+        if cv2.contourArea(c) > dryout_min_area:
+            temp = cropped.copy() * 0
+            cv2.drawContours(temp, [c], -1, (255,255,255), cv2.FILLED)
+            # show_image(temp)
+            temp[temp == 255] = 1
+            
+            temp_crop = cropped.copy()
+            temp_crop *= temp
+            
+            non_zero = temp_crop[np.where(temp_crop!=0)]
+            # mean = np.sum(non_zero) / len(non_zero)
+            quantile = np.quantile(non_zero, dryout_area_quantile / 100)
+            if dryout_min_px <= quantile <= dryout_max_px:
+                # print(quantile)
+                mask += temp
+                areas += 1
+    
+    mask[mask > 0] = 1
+    total_pixels = np.shape(mask)[0] * np.shape(mask)[1]
+    covered = np.sum(mask[:, :, 0])
+    
+    mask[:, :, 0] *= 255
+    detected_dryout[:, :, 0] = mask[:, :, 0]
+    # detected_dryout *= mask
+    
+    ada = cv2.cvtColor(ada,cv2.COLOR_GRAY2RGB)
+    high_contrast[y:y+h, x:x+w] = ada
+    gradient_img[y:y+h, x:x+w] = cropped
+
+    img = frame.copy()
+    img[y:y+h, x:x+w] = detected_dryout
+    
+    row1 = cv2.hconcat([frame, show_contours])
+    row2 = cv2.hconcat([high_contrast, img])
+    out_img = cv2.vconcat([row1, row2])
+    
+    return covered / total_pixels, areas, out_img.copy()
         
-        row1 = cv2.hconcat([frame, cv2.cvtColor(contour_img, cv2.COLOR_GRAY2RGB)])
-        row2 = cv2.hconcat([high_contrast, img])
-        out_img = cv2.vconcat([row1, row2])
-        
-        return covered / total_pixels, areas, out_img.copy()
-        
-    else:
-        img = frame.copy()
-        return 0, 0, None
+    # else:
+    #     img = frame.copy()
+    #     return 0, 0, None
         
 
     
