@@ -273,6 +273,7 @@ with ctrl_panel:
                                             'Pixel UPPER bound of dryout areas',
                                             'Pixel LOWER bound of dryout areas',
                                             'Minimum dryout area ratio to the selected square',
+                                            'Dryout pixel quantile',
                                             'Rate of darkended gradient mask (from left)',
                                             'Rate of brightened gradient mask (from top)',
                                             'Rate of brightened gradient mask (from bottom)'
@@ -280,6 +281,7 @@ with ctrl_panel:
                                     "Values": [
                                             dryout_pixel_range_slider[0],
                                             dryout_pixel_range_slider[1],
+                                            dryout_area_threshold_ratio,
                                             dryout_area_quantile,
                                             left_darken_gradient_mask_rate,
                                             top_brighten_gradient_mask_rate,
@@ -345,6 +347,7 @@ with ctrl_panel:
                                             'Pixel UPPER bound of dryout areas',
                                             'Pixel LOWER bound of dryout areas',
                                             'Minimum dryout area ratio to the selected square',
+                                            'Dryout pixel quantile',
                                             'Rate of darkended gradient mask (from left)',
                                             'Rate of brightened gradient mask (from top)',
                                             'Rate of brightened gradient mask (from bottom)'
@@ -352,6 +355,7 @@ with ctrl_panel:
                                     "Values": [
                                             dryout_pixel_range_slider[0],
                                             dryout_pixel_range_slider[1],
+                                            dryout_area_threshold_ratio,
                                             dryout_area_quantile,
                                             left_darken_gradient_mask_rate,
                                             top_brighten_gradient_mask_rate,
