@@ -192,12 +192,12 @@ with coord_vid:
         
 with ctrl_panel:
     # parameters
-    dryout_pixel_range_slider = st.slider("Pixel bounds of dryout areas", 0, 255, (95, 200))
-    dryout_area_threshold_ratio = st.slider("Minimum dryout area ratio compare with the detected square", 20, 300, 50, 5)
-    dryout_area_quantile = st.slider("Dryout pixel quantile ", 10, 100, 80, 5)
+    dryout_pixel_range_slider = st.slider("Pixel bounds of dryout areas", 0, 255, (30, 100))
+    dryout_area_threshold_ratio = st.slider("Minimum dryout area ratio compare with the detected square", 20, 300, 250, 5)
+    dryout_area_quantile = st.slider("Dryout pixel quantile ", 10, 100, 40, 5)
     left_darken_gradient_mask_rate = st.slider("Rate of darkened gradient mask from the left", 0.0, 0.3, 0.03, 0.01)
-    top_brighten_gradient_mask_rate = st.slider("Rate of brighten gradient mask from the top", 0.0, 0.3, 0.03, 0.01)
-    bottom_brighten_gradient_mask_rate = st.slider("Rate of brighten gradient mask from the bottom", 0.0, 0.3, 0.03, 0.01)
+    top_brighten_gradient_mask_rate = st.slider("Rate of brighten gradient mask from the top", 0.0, 0.3, 0.0, 0.01)
+    bottom_brighten_gradient_mask_rate = st.slider("Rate of brighten gradient mask from the bottom", 0.0, 0.3, 0.0, 0.01)
     
     # process the video
     if st.button("Submit"):

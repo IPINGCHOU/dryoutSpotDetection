@@ -100,6 +100,7 @@ def dryout_detection(frame,
     # demo
     high_contrast = frame.copy()
     gradient_img = frame.copy()
+    blurred = frame.copy()
     # if rect != None:
         # x,y,w,h = rect
     
@@ -110,14 +111,25 @@ def dryout_detection(frame,
     alpha = 2
     beta = 0
     target = cv2.convertScaleAbs(cropped, alpha=alpha, beta=beta)
-    # target = cv2.addWeighted(cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY), alpha, target, 0, beta)
     gray = cv2.cvtColor(target, cv2.COLOR_BGR2GRAY)
-    ada = cv2.adaptiveThreshold(gray, maxValue=250, 
-                            adaptiveMethod=cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+    
+    # turn reflection to darker pixels
+    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+    gray[thresh == 255] = np.mean(gray) - 30
+
+    # blur, with ada
+    blur = cv2.bilateralFilter(gray, 31, 30, 20)
+    ada = cv2.adaptiveThreshold(blur, maxValue=255, 
+                            adaptiveMethod=cv2.ADAPTIVE_THRESH_MEAN_C,
                             thresholdType=cv2.THRESH_BINARY,
-                            blockSize = 551, C = -4)
+                            blockSize = 1501, C = -4)
     ret,thresh = cv2.threshold(ada,127,255,0)
-    contours, hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Otsu threhsold, too loose
+    # blur = cv2.GaussianBlur(gray,(101, 101), 3)
+    # _,thresh = cv2.threshold(blur,0,255,cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    contours, _ = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     cv2.drawContours(cropped_contours, contours, -1, (0, 255, 0), 3)
     show_contours = frame.copy()
     show_contours[y:y+h, x:x+w] = cropped_contours
@@ -125,7 +137,6 @@ def dryout_detection(frame,
     # get each contours area
     dryout_min_area = w * h / dryout_area_ratio
     detected_dryout = cropped.copy()
-    
     
     # gradient mask (from left, darken)
     gradient_mask = range(1, w + 1)
@@ -189,21 +200,18 @@ def dryout_detection(frame,
     
     ada = cv2.cvtColor(ada,cv2.COLOR_GRAY2RGB)
     high_contrast[y:y+h, x:x+w] = ada
+    
+    blur = cv2.cvtColor(blur,cv2.COLOR_GRAY2RGB)
+    blurred[y:y+h, x:x+w] = blur
     gradient_img[y:y+h, x:x+w] = cropped
 
     img = frame.copy()
     img[y:y+h, x:x+w] = detected_dryout
     
-    row1 = cv2.hconcat([frame, show_contours])
+    row1 = cv2.hconcat([frame, blurred])
     row2 = cv2.hconcat([high_contrast, img])
     out_img = cv2.vconcat([row1, row2])
     
     return covered / total_pixels, areas, out_img.copy()
         
-    # else:
-    #     img = frame.copy()
-    #     return 0, 0, None
-        
-
-    
     
